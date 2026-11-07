@@ -64,7 +64,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r tourism_project/requirements.txt
 
       - name: Download Registered Dataset
         uses: actions/download-artifact@v4
@@ -107,7 +107,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r tourism_project/requirements.txt
 
       - name: Download Train Test Splits
         uses: actions/download-artifact@v4
