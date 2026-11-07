@@ -1,0 +1,132 @@
+
+
+name: Tourism Project Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+
+  # ------------------------------------------
+  # 1. Dataset Registration
+  # ------------------------------------------
+  register-dataset:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Register Dataset
+        run: |
+          python tourism_project/model_building/data_register.py
+
+      - name: Upload Registered Dataset
+        uses: actions/upload-artifact@v4
+        with:
+          name: registered-data
+          path: tourism_project/data/tourism.csv
+          if-no-files-found: error
+
+
+  # ------------------------------------------
+  # 2. Data Preparation
+  # ------------------------------------------
+  data-prep:
+    needs: register-dataset
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download Registered Dataset
+        uses: actions/download-artifact@v4
+        with:
+          name: registered-data
+          path: tourism_project/data
+
+      - name: Run Data Preparation
+        run: |
+          python tourism_project/model_building/prep.py
+
+      - name: Upload Train Test Splits
+        uses: actions/upload-artifact@v4
+        with:
+          name: data-splits
+          path: |
+            tourism_project/data/processed/Xtrain.csv
+            tourism_project/data/processed/Xtest.csv
+            tourism_project/data/processed/ytrain.csv
+            tourism_project/data/processed/ytest.csv
+          if-no-files-found: error
+
+
+  # ------------------------------------------
+  # 3. Model Training
+  # ------------------------------------------
+  model-training:
+    needs: data-prep
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download Train Test Splits
+        uses: actions/download-artifact@v4
+        with:
+          name: data-splits
+          path: tourism_project/data/processed
+
+      - name: Run Model Training
+        run: |
+          python tourism_project/model_building/train.py
+
+      - name: Commit Trained Model and Threshold
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add tourism_project/deployment/tourism_xgb_model.joblib
+          git add tourism_project/deployment/decision_threshold.json
+
+          git commit -m "Add trained model and threshold [skip ci]" || echo "No changes to commit"
+
+          git push
